@@ -12,8 +12,9 @@ import logging
 from os import getenv
 from dotenv import load_dotenv
 
-load_dotenv()   # load variables from .env file
-logging.basicConfig(filename='objects.log', level=logging.INFO)
+load_dotenv()  # load variables from .env file
+# logging.basicConfig(filename='objects.log', level=logging.INFO)
+logging.basicConfig(level=logging.INFO)
 
 Simbad.TIMEOUT = 120
 Vizier.TIMEOUT = 120
@@ -85,7 +86,7 @@ def parse_row(row):
     simbad_name = None
 
     # Retrieve the Simbad object based on the available names
-    simbad_obj = get_simbad_object([recover_gaia_name(gaia_name),  recover_ucac4_name(ucac4_name), simbad_name,
+    simbad_obj = get_simbad_object([recover_gaia_name(gaia_name), recover_ucac4_name(ucac4_name), simbad_name,
                                     apass_name, vsx_name])
 
     radec = SkyCoord(ra_icrs + ' ' + de_icrs, unit=(u_deg, u_deg), frame='icrs')
@@ -109,10 +110,12 @@ def parse_row(row):
     if vsx_name is not None:
         logging.info(f'----------------------{simbad_name}: vsx_name = {vsx_name}')
 
-    coordequ_str = f'\'({radec.icrs.ra.deg}d, {radec.icrs.dec.deg}d)\''
+    # coordequ_str = f'\'({radec.icrs.ra.deg}d, {radec.icrs.dec.deg}d)\''
+    coordequ_str = f'({radec.icrs.ra.deg}d, {radec.icrs.dec.deg}d)'
 
     simbad_name, gaia_name, apass_name, vsx_name, object_class, object_description = \
-        ['NULL' if x is None else f'\'{x}\''
+        ['NULL' if x is None else f'{x}'
+         # ['NULL' if x is None else f'\'{x}\''
          for x in [simbad_name, gaia_name, apass_name, vsx_name, object_class, object_description]]
 
     return (old_id, gaia_name, simbad_name, ucac4_name, apass_name, vsx_name, coordequ_str, object_class,

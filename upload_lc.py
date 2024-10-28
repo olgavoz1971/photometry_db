@@ -10,7 +10,7 @@ from os import getenv
 from dotenv import load_dotenv
 
 load_dotenv()   # load variables from .env file
-logging.basicConfig(filename='objects.log', level=logging.INFO)
+logging.basicConfig(level=logging.INFO)
 
 filename_csv = '../CSV/Obs_UPJS_Photometry.csv'
 
@@ -153,7 +153,6 @@ def upload_lc(cursor: psycopg2.extensions.cursor, row: list):
     }
     js = json.dumps(params_dict)
 
-    # Print the lightcurve ID for debugging purposes
     logging.info(f'{lightcurve_id}')
 
     cursor.execute(
@@ -163,21 +162,6 @@ def upload_lc(cursor: psycopg2.extensions.cursor, row: list):
         ''',
         (lightcurve_id, js)
     )
-
-    # ---------------- Metadata --------------------------
-
-    # comp_stars_list = [int(s) for s in eval(comp_stars)['comp_stars']]
-    # comp_stars_list = eval(comp_stars)  # convert string into dictionary
-    # params_dict = {'detrend_mag': float(detrend_mag), 'detrend_mag_err': float(detrend_mag_err),
-    #                'type_detrend': type_detrend, 'num_calib': int(num_calib), 'type_calib': type_calib,
-    #                'detrend': detrend, 'aver_comp': float(aver_comp), 'num_comp': int(num_comp),
-    #                'differential': int(differential), 'exp_time': float(exp_time), 'binning': binning,
-    #                'temperature': float(temperature),
-    #                'comp_stars': comp_stars_list}
-    #
-    # js = json.dumps(params_dict)
-    # print(f'{lightcurve_id}')
-    # cursor.execute(f'insert into metadata_lc_json (lightcurve_id, data) values ({lightcurve_id}, \'{js}\')')
 
 
 @timeit

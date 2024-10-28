@@ -20,7 +20,7 @@ from os import getenv
 from dotenv import load_dotenv
 
 load_dotenv()   # load variables from .env file
-logging.basicConfig(filename='objects.log', level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 imagetype_dict = {'Light Frame': 'light', 'Dark Frame': 'dark'}
@@ -71,14 +71,15 @@ def upload_fits(cursor: psycopg2.extensions.cursor, filename_full):
         scale_x = 206265 / header['FOCALLEN'] * header['XPIXSZ'] / 1000 / 3600  # deg/px
         scale_y = 206265 / header['FOCALLEN'] * header['YPIXSZ'] / 1000 / 3600
     except Exception as e:
-        logging.error(f'Missing header key?: {e}')
+        logging.error(f'Missing header key?: {str(e)}')
         raise TerminateScript('scale_x, scale_y problem')
     deg_x = nx * scale_x
     deg_y = ny * scale_y
     mode = imagetype_dict[header['IMAGETYP']]
     if mode != 'dark':
         band_orig = header['FILTER']
-        band = f'\'{band_dict.get(band_orig, None)}\''
+        # band = f'\'{band_dict.get(band_orig, None)}\''
+        band = band_dict.get(band_orig, None)
         if band is None:
             raise TerminateScript(f'Unknown photometric band {band_orig} in {filename_full}')
 
@@ -86,12 +87,16 @@ def upload_fits(cursor: psycopg2.extensions.cursor, filename_full):
         try:
             with warnings.catch_warnings():
                 warnings.filterwarnings('ignore', category=FITSFixedWarning)
-                wcs = WCS(header, relax=True)
-                radec = SkyCoord.from_pixel(nx / 2 - 0.5, ny / 2 - 0.5, wcs=wcs, origin=0)
-                coordequsrc_str = 'wcs'
+                # Check if there are WCS-related keywords in the header
+                if any(key in header for key in ['CTYPE1', 'CTYPE2', 'CRVAL1', 'CRVAL2', 'CRPIX1', 'CRPIX2']):
+                    wcs = WCS(header, relax=True)
+                    radec = SkyCoord.from_pixel(nx / 2 - 0.5, ny / 2 - 0.5, wcs=wcs, origin=0)
+                    coordequsrc_str = 'wcs'
+                else:
+                    raise ValueError("WCS information is missing from the FITS header.")
 
         except Exception as e:
-            logging.warning('wcs failure:', e)
+            logging.warning(f'wcs failure: {str(e)}')
             try:
                 logging.info('Try OBJCTRA/OBJCTDEC...')
                 ra_str = header['OBJCTRA']
@@ -99,8 +104,8 @@ def upload_fits(cursor: psycopg2.extensions.cursor, filename_full):
                 frame = header.get('RADECSYS', 'ICRS')
                 radec = SkyCoord(ra_str + ' ' + dec_str, unit=(hourangle, u_deg), frame=frame_dict.get(frame))
                 coordequsrc_str = 'objectequ'
-            except Exception as e:
-                logging.warning('RA DEC failure:', e)
+            except Exception as e1:
+                logging.warning(f'RA DEC failure:{str(e1)}')
                 raise TerminateScript('RA DEC failure')
 
         # Check scale consistency
@@ -117,8 +122,10 @@ def upload_fits(cursor: psycopg2.extensions.cursor, filename_full):
                             f'scale_y_wcs = {scale_y_wcs} scale_y = {scale_y}\n')
                 # raise TerminateScript('The scales differ too much')
 
-        coordequ_str = f'\'({radec.icrs.ra.deg}d, {radec.icrs.dec.deg}d)\''
-        coordequsrc_str = f'\'{coordequsrc_str}\''
+        # coordequ_str = f'\'({radec.icrs.ra.deg}d, {radec.icrs.dec.deg}d)\''
+        coordequ_str = f'({radec.icrs.ra.deg}d, {radec.icrs.dec.deg}d)'
+        # coordequsrc_str = f'\'{coordequsrc_str}\''
+        coordequsrc_str = f'{coordequsrc_str}'
     else:
         band = 'NULL'
         coordequ_str = 'NULL'
@@ -170,50 +177,6 @@ def upload_fits(cursor: psycopg2.extensions.cursor, filename_full):
         cursor.execute('SELECT id FROM observations ORDER BY id DESC LIMIT 1')
         row = cursor.fetchone()
         observation_id = row[0]
-
-    # --------------
-    # cursor.execute(f'select id from telescopes where name=\'{telescope}\'')
-    # row = cursor.fetchall()
-    # if len(row) < 1:
-    #     raise TerminateScript(f'Unknown telescope {telescope}')
-    # telescope_id = row[0][0]
-    #
-    # cursor.execute(f'select id from instruments where name=\'{instrument}\'')
-    # row = cursor.fetchall()
-    # if len(row) < 1:
-    #     raise TerminateScript(f'Unknown instrument {instrument}')
-    #
-    # instrument_id = row[0][0]
-    # observation_id = None
-    # path_to_fits, fits_name = os.path.split(filename_full)
-    # filename_short = clean_fits_filename(fits_name)
-    #
-    # cursor.execute(f'select id from observations where filename=\'{filename_short}\'')
-    # row = cursor.fetchall()
-    # if row:
-    #     observation_id = row[0][0]
-    #     logging.warning(f'BD already contains file {filename_short}. Updating...\n')
-    #
-    # if observation_id is None:  # new observation
-    #     cursor.execute(
-    #         f'insert into observations(dateobs, accumtime, telescope_id,'
-    #         f'instrument_id, fov, mode, band, coordequ,'
-    #         f'coordequsrc, type,filename,path_to_fits) values('
-    #         f'\'{dateobs_str}\',{accumtime},{telescope_id},{instrument_id},\'({radians(deg_x)},{radians(deg_y)})\','
-    #         f'\'{mode}\',{band},{coordequ_str},'
-    #         f'{coordequsrc_str},\'{img_type}\',\'{filename_short}\',\'{path_to_fits}\')')
-    #
-    #     cursor.execute('select id from observations order by id desc limit 1')
-    #     row = cursor.fetchall()
-    #     observation_id = row[0][0]
-
-    # else:
-    #     cursor.execute(
-    #         f'update observations set dateobs=\'{dateobs_str}\', accumtime={accumtime}, telescope_id={telescope_id},'
-    #         f'instrument_id={instrument_id}, fov=\'({radians(deg_x)},{radians(deg_y)})\',mode=\'{mode}\','
-    #         f'band={band},coordequ={coordequ_str}, coordequsrc={coordequsrc_str}, type=\'{img_type}\', '
-    #         f'filename=\'{filename_short}\', path_to_fits=\'{path_to_fits}\' '
-    #         f'where id={observation_id}')
 
     else:
         query = '''
