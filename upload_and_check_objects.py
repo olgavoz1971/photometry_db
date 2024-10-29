@@ -136,6 +136,7 @@ def do_your_stuff(objects_filename_csv: str):
     with open(objects_filename_csv) as f:
         csv_reader = csv.reader(f)
         # Define the range of rows to process
+        # In this example we attempt to upload only one row
         n_skip = 10
         n_max = 11
         csv_reader_sliced = itertools.islice(csv_reader, n_skip, n_max)  # iterator of the next n_max-n_skip rows
@@ -147,7 +148,7 @@ def do_your_stuff(objects_filename_csv: str):
             query = 'SELECT * FROM objects WHERE gaia_name = %s'
             cursor.execute(query, (gaia_name,))
             row = cursor.fetchone()
-            if len(row) > 0:
+            if row:
                 object_id = row[0]
                 logging.info(f'object with gaia_name={gaia_name} is already present in the DB with id={object_id}')
 
@@ -176,4 +177,4 @@ def do_your_stuff(objects_filename_csv: str):
 
 
 if __name__ == '__main__':
-    do_your_stuff('CSV/Object.csv')
+    do_your_stuff('/home/olgavoz/CSV/Object.csv')

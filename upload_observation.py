@@ -51,7 +51,17 @@ def upload_metadata_json(header: astropy.io.fits.hdu, observation_id: int, curso
             continue
         params_di[key] = header[key]
     js = json.dumps(params_di)
-    cursor.execute('UPDATE metadata_obs_json SET data = %s WHERE observation_id = %s', (js, observation_id))
+    # Check if the observation_id already exists
+    cursor.execute('SELECT COUNT(*) FROM metadata_obs_json WHERE observation_id = %s', (observation_id,))
+    exists = cursor.fetchone()[0]
+
+    if exists > 0:
+        # Update the existing row
+        cursor.execute(
+            'UPDATE metadata_obs_json SET data = %s WHERE observation_id = %s', (js, observation_id))
+    else:
+        # Insert a new row
+        cursor.execute('INSERT INTO metadata_obs_json (observation_id, data) VALUES (%s, %s)', (observation_id, js))
     return
 
 
@@ -77,7 +87,8 @@ def upload_fits(cursor: psycopg2.extensions.cursor, filename_full):
     deg_y = ny * scale_y
     mode = imagetype_dict[header['IMAGETYP']]
     if mode != 'dark':
-        band_orig = header['FILTER']
+        # band_orig = header['FILTER']
+        band_orig = header.get('FILTER', None)
         # band = f'\'{band_dict.get(band_orig, None)}\''
         band = band_dict.get(band_orig, None)
         if band is None:
@@ -88,12 +99,12 @@ def upload_fits(cursor: psycopg2.extensions.cursor, filename_full):
             with warnings.catch_warnings():
                 warnings.filterwarnings('ignore', category=FITSFixedWarning)
                 # Check if there are WCS-related keywords in the header
-                if any(key in header for key in ['CTYPE1', 'CTYPE2', 'CRVAL1', 'CRVAL2', 'CRPIX1', 'CRPIX2']):
-                    wcs = WCS(header, relax=True)
-                    radec = SkyCoord.from_pixel(nx / 2 - 0.5, ny / 2 - 0.5, wcs=wcs, origin=0)
-                    coordequsrc_str = 'wcs'
-                else:
-                    raise ValueError("WCS information is missing from the FITS header.")
+                # if any(key in header for key in ['CTYPE1', 'CTYPE2', 'CRVAL1', 'CRVAL2', 'CRPIX1', 'CRPIX2']):
+                wcs = WCS(header, relax=True)
+                radec = SkyCoord.from_pixel(nx / 2 - 0.5, ny / 2 - 0.5, wcs=wcs, origin=0)
+                coordequsrc_str = 'wcs'
+                # else:
+                #    raise ValueError("WCS information is missing from the FITS header.")
 
         except Exception as e:
             logging.warning(f'wcs failure: {str(e)}')
@@ -127,9 +138,9 @@ def upload_fits(cursor: psycopg2.extensions.cursor, filename_full):
         # coordequsrc_str = f'\'{coordequsrc_str}\''
         coordequsrc_str = f'{coordequsrc_str}'
     else:
-        band = 'NULL'
-        coordequ_str = 'NULL'
-        coordequsrc_str = 'NULL'
+        band = None
+        coordequ_str = None
+        coordequsrc_str = None
 
     img_type = 'image'
     accumtime = header['EXPTIME']

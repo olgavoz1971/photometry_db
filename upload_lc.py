@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()   # load variables from .env file
 logging.basicConfig(level=logging.INFO)
 
-filename_csv = '../CSV/Obs_UPJS_Photometry.csv'
+filename_csv = '/home/olgavoz/CSV/Obs_UPJS_Photometry.csv'
 
 obs_type_dict = {
     1: 7,
@@ -179,7 +179,9 @@ def do_your_stuff():
         csv_reader = csv.reader(f)
         # row_header = next(csv_reader)  # header
         # print(row_header)
-        n_skip = 1218494  # skip first n_skip rows
+        # We have 1,466,178 rows in Obs_UPJS_Photometry.csv. The first row is the header.
+        # In this example, we attempt to upload only one row, the last one:
+        n_skip = 1466177  # skip first n_skip rows
         n_max = n_skip + 1  # the last number, if None, then iteration continues until the iterator is exhausted
         csv_reader_sliced = itertools.islice(csv_reader, n_skip, n_max)  # slice to iterate over the next n_max-n rows
         for row in csv_reader_sliced:
