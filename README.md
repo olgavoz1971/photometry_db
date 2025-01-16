@@ -5,5 +5,5 @@ The scripts contain examples for data upload and querying.
 
 ## Documentation
 
-The database structure and detailed description are available in the PDF file located in the `docs` directory
+The database structure and detailed description are available in the [PDF file](docs/Photometry Database description v1.0.pdf)
 
